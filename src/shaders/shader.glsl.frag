@@ -2,6 +2,7 @@ R"(
 #version 460 core
 
 const uint GRID_SIZE = 32;
+const float AMBIENT_LIGHT = 0.1;
 
 layout(std430, binding = 0) readonly buffer voxels_buffer {
     uint data[];    
@@ -13,6 +14,7 @@ uniform mat4 camera_basis;
 
 out vec4 out_color;
 
+// Credit to Inigo Quilez
 vec2 boxIntersection(vec3 ro, vec3 rd, vec3 boxSize) {
     vec3 m = 1.0/rd;
     vec3 n = m*ro;
@@ -52,21 +54,28 @@ vec3 raycast(vec3 origin, vec3 direction) {
         }
     }
     
+    vec3 normal = vec3(0.0);
+    
     for (uint i = 0; i < 128; i++) {
-        ivec3 mask = ivec3(0);
-        if (distance.x <= distance.y && distance.x <= distance.z) {
-            mask.x = 1;
-        } else if (distance.y < distance.x && distance.y <= distance.z) {
-            mask.y = 1;
-        } else {
-            mask.z = 1;
-        }
-
         ivec3 index = voxel + ivec3(GRID_SIZE / 2);
         if (index.x < 0 || index.y < 0 || index.z < 0 || index.x >= GRID_SIZE || index.y >= GRID_SIZE || index.z >= GRID_SIZE) break;
         
         if (voxels.data[index.z * GRID_SIZE * GRID_SIZE + index.y * GRID_SIZE + index.x] > 0) {
-            return vec3(index) / (GRID_SIZE - 1.0);
+            vec3 diffuse = vec3(index) / (GRID_SIZE - 1.0);
+            float light = clamp(dot(normal, normalize(vec3(1.0))), AMBIENT_LIGHT, 1.0);
+            return diffuse * light;
+        }
+
+        ivec3 mask = ivec3(0);
+        if (distance.x <= distance.y && distance.x <= distance.z) {
+            mask.x = 1;
+            normal = vec3(-step.x, 0.0, 0.0);
+        } else if (distance.y < distance.x && distance.y <= distance.z) {
+            mask.y = 1;
+            normal = vec3(0.0, -step.y, 0.0);
+        } else {
+            mask.z = 1;
+            normal = vec3(0.0, 0.0, -step.z);
         }
         
         distance += delta * vec3(mask);

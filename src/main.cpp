@@ -93,7 +93,7 @@ int main() {
                     std::pow(x - 16.0f, 2)
                     + std::pow(y - 16.0f, 2)
                     + std::pow(z - 16.0f, 2)
-                ) < std::pow(16.0f, 2);
+                ) < std::pow(15.0f, 2);
             }
         }
     }
@@ -134,7 +134,7 @@ int main() {
 
     glUseProgram(shader_program);
     
-    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 30.0f);
+    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 32.0f);
     glm::vec3 camera_rotation = glm::vec3(0.0f);
 
     while (!glfwWindowShouldClose(window)) {
