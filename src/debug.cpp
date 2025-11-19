@@ -25,6 +25,10 @@ void debug::print_error(const std::string& message, bool panic, const std::strin
     if (panic) panic();
 }
 
+void debug::glfw_error_callback(int error, const char* description) {
+    debug::print_error(description, true, std::string("GLFW Error ") + std::to_string(error));
+}
+
 void debug::debug_message_callback(
     unsigned int source,
     unsigned int type,

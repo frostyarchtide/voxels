@@ -4,7 +4,11 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
+#include <iostream>
 #include <vector>
 
 #include "debug.hpp"
@@ -16,11 +20,10 @@ void window_size_callback(GLFWwindow* window, int width, int height) {
 }
 
 int main() {
+    glfwSetErrorCallback(debug::glfw_error_callback);
     glfwInitHint(GLFW_WAYLAND_LIBDECOR, GLFW_WAYLAND_DISABLE_LIBDECOR);
 
-    if (glfwInit() != GL_TRUE) {
-        return -1;
-    }
+    if (glfwInit() != GL_TRUE) return -1;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -37,11 +40,19 @@ int main() {
     glfwSetWindowSizeCallback(window, window_size_callback);
     glfwSwapInterval(1);
     
-    debug::print_info((const char*) glGetString(GL_VERSION), "OpenGL Version");
-
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(debug::debug_message_callback, nullptr);
+    debug::print_info((const char*) glGetString(GL_VERSION), "OpenGL Version");
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460 core");
     
     unsigned int vertex_array;
     glGenVertexArrays(1, &vertex_array);
@@ -160,6 +171,17 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(shader_program, "camera_basis"), 1, GL_FALSE, &camera_basis[0][0]);
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Hello, world!");
+        ImGui::Text("This is some useful text.");
+        ImGui::End();
+        
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -168,6 +190,9 @@ int main() {
     glDeleteProgram(shader_program);
     glDeleteBuffers(1, &voxels_buffer);
     glDeleteBuffers(1, &vertex_buffer);
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
 }
