@@ -2,6 +2,7 @@ R"(
 #version 460 core
 
 const float EPSILON = 1.0e-3;
+const float INFINITY = 1.0e+30;
 const uint GRID_SIZE = 128;
 const vec3 LIGHT_DIRECTION = normalize(vec3(1.0, 0.5, 1.0));
 const float AMBIENT_LIGHT = 0.1;
@@ -64,11 +65,10 @@ HitInfo raycast(vec3 origin, vec3 direction) {
         }
     }
 
-    origin += direction * (intersection.start + EPSILON);
-    ivec3 voxel = ivec3(floor(origin));
+    ivec3 voxel = ivec3(floor(origin + direction * (intersection.start + EPSILON)));
     ivec3 step = ivec3(sign(direction));
-    vec3 distance = vec3(1.0e+30);
-    vec3 delta = vec3(1.0e+30);
+    vec3 distance = vec3(INFINITY);
+    vec3 delta = vec3(INFINITY);
     for (uint i = 0; i < 3; i++) {
         if (direction[i] != 0.0) {
             float next = float(voxel[i]);
@@ -118,7 +118,7 @@ HitInfo raycast(vec3 origin, vec3 direction) {
     return HitInfo(
         ivec3(-1),
         vec3(0.0),
-        vec3(0.0)
+        vec3(1.0)
     );
 }
 
@@ -136,6 +136,7 @@ void main() {
         hit_info = raycast(hit_info.position, LIGHT_DIRECTION);
         if (hit_info.voxel != ivec3(-1)) {
             light = AMBIENT_LIGHT;
+            color = vec3(hit_info.voxel) / GRID_SIZE;
         }
         
         color *= light;
