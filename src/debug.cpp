@@ -3,7 +3,7 @@
     #define panic() __debugbreak()
 #else
     #include <csignal>
-    #define panic() raise(SIGBREAK)
+    #define panic() raise(SIGTRAP)
 #endif
 
 #include <epoxy/gl.h>
