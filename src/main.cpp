@@ -5,35 +5,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
-#include <iostream>
+#include <vector>
 
-void debug_message_callback(
-    unsigned int source,
-    unsigned int type,
-    unsigned intid,
-    unsigned int severity,
-    int length,
-    const char* message,
-    const void* user_param
-) {
-    std::cout << "[OpenGL Error] " << message << std::endl;
-}
+#include "debug.hpp"
 
-void check_shader(unsigned int shader) {
-    int success = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (success == GL_FALSE) {
-        int max_length = 0;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &max_length);
-
-        char* error_log = (char*) malloc(max_length);
-        glGetShaderInfoLog(shader, max_length, &max_length, error_log);
-
-        std::cout << "[Shader Error] " << error_log << std::endl;
-
-        free((void*) error_log);
-    }
-}
+const unsigned int GRID_SIZE = 64;
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -50,7 +26,6 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "Voxels", nullptr, nullptr);
     if (!window) {
@@ -61,10 +36,12 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetWindowSizeCallback(window, window_size_callback);
     glfwSwapInterval(1);
+    
+    debug::print_info((const char*) glGetString(GL_VERSION), "OpenGL Version");
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(debug_message_callback, nullptr);
+    glDebugMessageCallback(debug::debug_message_callback, nullptr);
     
     unsigned int vertex_array;
     glGenVertexArrays(1, &vertex_array);
@@ -85,27 +62,27 @@ int main() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*) 0);
     glEnableVertexAttribArray(0);
     
-    unsigned int voxels[32 * 32 * 32];
-    for (size_t z = 0; z < 32; z++) {
-        for (size_t y = 0; y < 32; y++) {
-            for (size_t x = 0; x < 32; x++) {
-                voxels[z * 32 * 32 + y * 32 + x] = (
-                    std::pow(x - 16.0f, 2)
-                    + std::pow(y - 16.0f, 2)
-                    + std::pow(z - 16.0f, 2)
-                ) < std::pow(15.0f, 2);
+    std::vector<unsigned int> voxels(GRID_SIZE * GRID_SIZE * GRID_SIZE);
+    for (size_t z = 0; z < GRID_SIZE; z++) {
+        for (size_t y = 0; y < GRID_SIZE; y++) {
+            for (size_t x = 0; x < GRID_SIZE; x++) {
+                voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = (
+                    std::pow(x - (float) GRID_SIZE / 2.0f, 2)
+                    + std::pow(y - (float) GRID_SIZE / 2.0f, 2)
+                    + std::pow(z - (float) GRID_SIZE / 2.0f, 2)
+                ) < std::pow((float) GRID_SIZE / 2.0f - 1.0f, 2);
             }
         }
     }
     voxels[0] = 1;
-    voxels[32 * 32 * 32 - 1] = 1;
+    voxels[GRID_SIZE * GRID_SIZE * GRID_SIZE - 1] = 1;
     
     unsigned int voxels_buffer;
     glGenBuffers(1, &voxels_buffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, voxels_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(voxels), voxels, GL_STATIC_READ);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * GRID_SIZE * GRID_SIZE * GRID_SIZE, &voxels[0], GL_STATIC_READ);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, voxels_buffer);
-
+    
     const char* vertex_shader_source =
     #include "shaders/shader.glsl.vert"
     ;
@@ -117,12 +94,12 @@ int main() {
     unsigned int vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, &vertex_shader_source, nullptr);
     glCompileShader(vertex_shader);
-    check_shader(vertex_shader);
+    debug::check_shader(vertex_shader);
 
     unsigned int fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragment_shader, 1, &fragment_shader_source, nullptr);
     glCompileShader(fragment_shader);
-    check_shader(fragment_shader);
+    debug::check_shader(fragment_shader);
 
     unsigned int shader_program = glCreateProgram();
     glAttachShader(shader_program, vertex_shader);
@@ -134,7 +111,7 @@ int main() {
 
     glUseProgram(shader_program);
     
-    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, 32.0f);
+    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, (float) GRID_SIZE);
     glm::vec3 camera_rotation = glm::vec3(0.0f);
 
     while (!glfwWindowShouldClose(window)) {
@@ -189,6 +166,7 @@ int main() {
     }
 
     glDeleteProgram(shader_program);
+    glDeleteBuffers(1, &voxels_buffer);
     glDeleteBuffers(1, &vertex_buffer);
     glfwDestroyWindow(window);
     glfwTerminate();

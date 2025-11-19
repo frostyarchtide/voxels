@@ -1,7 +1,7 @@
 R"(
 #version 460 core
 
-const uint GRID_SIZE = 32;
+const uint GRID_SIZE = 64;
 const float AMBIENT_LIGHT = 0.1;
 
 layout(std430, binding = 0) readonly buffer voxels_buffer {
@@ -56,7 +56,7 @@ vec3 raycast(vec3 origin, vec3 direction) {
     
     vec3 normal = vec3(0.0);
     
-    for (uint i = 0; i < 128; i++) {
+    for (uint i = 0; i < 4096; i++) {
         ivec3 index = voxel + ivec3(GRID_SIZE / 2);
         if (index.x < 0 || index.y < 0 || index.z < 0 || index.x >= GRID_SIZE || index.y >= GRID_SIZE || index.z >= GRID_SIZE) break;
         
