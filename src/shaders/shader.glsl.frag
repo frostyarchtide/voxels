@@ -1,10 +1,24 @@
 R"(
 #version 460 core
 
-const uint GRID_SIZE = 64;
+const float EPSILON = 1.0e-3;
+const uint GRID_SIZE = 128;
+const vec3 LIGHT_DIRECTION = normalize(vec3(1.0, 0.5, 1.0));
 const float AMBIENT_LIGHT = 0.1;
 
-layout(std430, binding = 0) readonly buffer voxels_buffer {
+struct IntersectionInfo {
+    float start;
+    float end;
+    vec3 normal;
+};
+
+struct HitInfo {
+    ivec3 voxel;
+    vec3 position;
+    vec3 normal;
+};
+
+layout(std430, binding = 0) readonly buffer Voxels {
     uint data[];    
 } voxels;
 
@@ -14,34 +28,47 @@ uniform mat4 camera_basis;
 
 out vec4 out_color;
 
-// Credit to Inigo Quilez
-vec2 boxIntersection(vec3 ro, vec3 rd, vec3 boxSize) {
-    vec3 m = 1.0/rd;
-    vec3 n = m*ro;
+// https://iquilezles.org/articles/intersectors/
+// axis aligned box centered at the origin, with size boxSize
+IntersectionInfo boxIntersection( in vec3 ro, in vec3 rd, vec3 boxSize ) 
+{
+    vec3 m = 1.0/rd; // can precompute if traversing a set of aligned boxes
+    vec3 n = m*ro;   // can precompute if traversing a set of aligned boxes
     vec3 k = abs(m)*boxSize;
     vec3 t1 = -n - k;
     vec3 t2 = -n + k;
     float tN = max( max( t1.x, t1.y ), t1.z );
     float tF = min( min( t2.x, t2.y ), t2.z );
-    if( tN>tF || tF<0.0) return vec2(-1.0);
-    return vec2( tN, tF );
+    if( tN>tF || tF<0.0) return IntersectionInfo(-1.0, -1.0, vec3(-1.0)); // no intersection
+    vec3 outNormal = (tN>0.0) ? step(vec3(tN),t1) : // ro ouside the box
+                           step(t2,vec3(tF));  // ro inside the box
+    outNormal *= -sign(rd);
+    return IntersectionInfo(
+        tN,
+        tF,
+        outNormal
+    );
 }
 
-vec3 raycast(vec3 origin, vec3 direction) {
-    vec2 intersection = boxIntersection(origin, direction, vec3(GRID_SIZE / 2.0));
-    if (intersection.x < 0.0) {
-        if (intersection.y >= 0.0) {
-            intersection.x = 0.0;
+HitInfo raycast(vec3 origin, vec3 direction) {
+    IntersectionInfo intersection = boxIntersection(origin, direction, vec3(GRID_SIZE / 2.0));
+    if (intersection.start < 0.0) {
+        if (intersection.end >= 0.0) {
+            intersection.start = 0.0;
         } else {
-            return vec3(0.1);
+            return HitInfo(
+                ivec3(-1),
+                vec3(0.0),
+                vec3(0.0)
+            );
         }
     }
 
-    origin += direction * (intersection.x + 1e-4);
+    origin += direction * (intersection.start + EPSILON);
     ivec3 voxel = ivec3(floor(origin));
     ivec3 step = ivec3(sign(direction));
-    vec3 distance = vec3(1e30);
-    vec3 delta = vec3(1e30);
+    vec3 distance = vec3(1.0e+30);
+    vec3 delta = vec3(1.0e+30);
     for (uint i = 0; i < 3; i++) {
         if (direction[i] != 0.0) {
             float next = float(voxel[i]);
@@ -54,35 +81,45 @@ vec3 raycast(vec3 origin, vec3 direction) {
         }
     }
     
-    vec3 normal = vec3(0.0);
+    float total_distance = intersection.start;
+    vec3 normal = intersection.normal;
     
-    for (uint i = 0; i < 4096; i++) {
+    for (uint i = 0; i < GRID_SIZE; i++) {
         ivec3 index = voxel + ivec3(GRID_SIZE / 2);
         if (index.x < 0 || index.y < 0 || index.z < 0 || index.x >= GRID_SIZE || index.y >= GRID_SIZE || index.z >= GRID_SIZE) break;
         
         if (voxels.data[index.z * GRID_SIZE * GRID_SIZE + index.y * GRID_SIZE + index.x] > 0) {
-            vec3 diffuse = vec3(index) / (GRID_SIZE - 1.0);
-            float light = clamp(dot(normal, normalize(vec3(1.0))), AMBIENT_LIGHT, 1.0);
-            return diffuse * light;
+            return HitInfo(
+                index,
+                origin + direction * total_distance,
+                normal
+            );
         }
 
         ivec3 mask = ivec3(0);
         if (distance.x <= distance.y && distance.x <= distance.z) {
             mask.x = 1;
             normal = vec3(-step.x, 0.0, 0.0);
+            total_distance += distance.x - total_distance;
         } else if (distance.y < distance.x && distance.y <= distance.z) {
             mask.y = 1;
             normal = vec3(0.0, -step.y, 0.0);
+            total_distance += distance.y - total_distance;
         } else {
             mask.z = 1;
             normal = vec3(0.0, 0.0, -step.z);
+            total_distance += distance.z - total_distance;
         }
         
         distance += delta * vec3(mask);
         voxel += step * mask;
     }
     
-    return vec3(0.1);
+    return HitInfo(
+        ivec3(-1),
+        vec3(0.0),
+        vec3(0.0)
+    );
 }
 
 void main() {
@@ -91,6 +128,22 @@ void main() {
     vec3 direction = normalize(vec3(ndc, -1.0));
     direction = normalize(vec3(camera_basis * vec4(direction, 1.0)));
 
-    out_color = vec4(raycast(camera_position, direction), 1.0);
+    HitInfo hit_info = raycast(camera_position, direction);
+    vec3 color = vec3(0.0);
+    if (hit_info.voxel != ivec3(-1)) {
+        color = vec3(hit_info.voxel) / GRID_SIZE;
+        float light = dot(hit_info.normal, LIGHT_DIRECTION);
+        hit_info = raycast(hit_info.position, LIGHT_DIRECTION);
+        if (hit_info.voxel != ivec3(-1)) {
+            light = AMBIENT_LIGHT;
+        }
+        
+        color *= light;
+    } else {
+        float value = dot(direction, LIGHT_DIRECTION);
+        color = vec3(smoothstep(0.95, 0.96, pow(value, 3.0)));
+    }
+
+    out_color = vec4(color, 1.0);
 }
 )"

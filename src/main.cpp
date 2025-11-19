@@ -13,7 +13,7 @@
 
 #include "debug.hpp"
 
-const unsigned int GRID_SIZE = 64;
+const unsigned int GRID_SIZE = 128;
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -38,7 +38,7 @@ int main() {
 
     glfwMakeContextCurrent(window);
     glfwSetWindowSizeCallback(window, window_size_callback);
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
     
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -82,7 +82,7 @@ int main() {
                     std::pow(x - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(y - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(z - (float) GRID_SIZE / 2.0f, 2)
-                ) < std::pow((float) GRID_SIZE / 2.0f - 1.0f, 2);
+                ) < std::pow((float) GRID_SIZE / 2.0f, 2);
                 voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = value;
                 if (value) voxel_count++;
             }
@@ -136,35 +136,36 @@ int main() {
 
         glm::mat4 camera_basis = glm::rotate(glm::rotate(glm::identity<glm::mat4>(), camera_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)), camera_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
 
+        float movement_modifier = (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) ? 5.0f : 1.0f;
         if (glfwGetKey(window, GLFW_KEY_W)) {
-            camera_position += glm::rotateY(glm::vec3(0.0f, 0.0f, -0.1f), camera_rotation.y);
+            camera_position += glm::rotateY(glm::vec3(0.0f, 0.0f, -10.0f * movement_modifier * delta), camera_rotation.y);
         }
         if (glfwGetKey(window, GLFW_KEY_S)) {
-            camera_position += glm::rotateY(glm::vec3(0.0f, 0.0f, 0.1f), camera_rotation.y);
+            camera_position += glm::rotateY(glm::vec3(0.0f, 0.0f, 10.0f * movement_modifier * delta), camera_rotation.y);
         }
         if (glfwGetKey(window, GLFW_KEY_A)) {
-            camera_position += glm::rotateY(glm::vec3(-0.1f, 0.0f, 0.0f), camera_rotation.y);
+            camera_position += glm::rotateY(glm::vec3(-10.0f * movement_modifier * delta, 0.0f, 0.0f), camera_rotation.y);
         }
         if (glfwGetKey(window, GLFW_KEY_D)) {
-            camera_position += glm::rotateY(glm::vec3(0.1f, 0.0f, 0.0f), camera_rotation.y);
+            camera_position += glm::rotateY(glm::vec3(10.0f * movement_modifier * delta, 0.0f, 0.0f), camera_rotation.y);
         }
         if (glfwGetKey(window, GLFW_KEY_SPACE)) {
-            camera_position.y += 0.1f;
+            camera_position.y += 10.0f * movement_modifier * delta;
         }
         if (glfwGetKey(window, GLFW_KEY_C)) {
-            camera_position.y -= 0.1f;
+            camera_position.y -= 10.0f * movement_modifier * delta;
         }
         if (glfwGetKey(window, GLFW_KEY_UP)) {
-            camera_rotation.x = glm::clamp(camera_rotation.x + 0.01f, -glm::half_pi<float>(), glm::half_pi<float>());
+            camera_rotation.x = glm::clamp(camera_rotation.x + glm::half_pi<float>() * delta, -glm::half_pi<float>(), glm::half_pi<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_DOWN)) {
-            camera_rotation.x = glm::clamp(camera_rotation.x - 0.01f, -glm::half_pi<float>(), glm::half_pi<float>());
+            camera_rotation.x = glm::clamp(camera_rotation.x - glm::half_pi<float>() * delta, -glm::half_pi<float>(), glm::half_pi<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT)) {
-            camera_rotation.y = std::fmod(camera_rotation.y + 0.01f, glm::tau<float>());
+            camera_rotation.y = std::fmod(camera_rotation.y + glm::half_pi<float>() * delta, glm::tau<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
-            camera_rotation.y = std::fmod(camera_rotation.y - 0.01f, glm::tau<float>());
+            camera_rotation.y = std::fmod(camera_rotation.y - glm::half_pi<float>() * delta, glm::tau<float>());
         }
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
