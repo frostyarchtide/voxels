@@ -8,7 +8,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include <iostream>
+#include <chrono>
 #include <vector>
 
 #include "debug.hpp"
@@ -74,14 +74,17 @@ int main() {
     glEnableVertexAttribArray(0);
     
     std::vector<unsigned int> voxels(GRID_SIZE * GRID_SIZE * GRID_SIZE);
+    unsigned int voxel_count = 0;
     for (size_t z = 0; z < GRID_SIZE; z++) {
         for (size_t y = 0; y < GRID_SIZE; y++) {
             for (size_t x = 0; x < GRID_SIZE; x++) {
-                voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = (
+                bool value = (
                     std::pow(x - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(y - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(z - (float) GRID_SIZE / 2.0f, 2)
                 ) < std::pow((float) GRID_SIZE / 2.0f - 1.0f, 2);
+                voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = value;
+                if (value) voxel_count++;
             }
         }
     }
@@ -122,10 +125,15 @@ int main() {
 
     glUseProgram(shader_program);
     
+    std::chrono::high_resolution_clock::time_point last_time = std::chrono::high_resolution_clock::now();
     glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, (float) GRID_SIZE);
     glm::vec3 camera_rotation = glm::vec3(0.0f);
 
     while (!glfwWindowShouldClose(window)) {
+        std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+        float delta = std::chrono::duration_cast<std::chrono::duration<float>>(now - last_time).count();
+        last_time = now;
+
         glm::mat4 camera_basis = glm::rotate(glm::rotate(glm::identity<glm::mat4>(), camera_rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)), camera_rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
 
         if (glfwGetKey(window, GLFW_KEY_W)) {
@@ -147,16 +155,16 @@ int main() {
             camera_position.y -= 0.1f;
         }
         if (glfwGetKey(window, GLFW_KEY_UP)) {
-            camera_rotation.x += 0.01f;
+            camera_rotation.x = glm::clamp(camera_rotation.x + 0.01f, -glm::half_pi<float>(), glm::half_pi<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_DOWN)) {
-            camera_rotation.x -= 0.01f;
+            camera_rotation.x = glm::clamp(camera_rotation.x - 0.01f, -glm::half_pi<float>(), glm::half_pi<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT)) {
-            camera_rotation.y += 0.01f;
+            camera_rotation.y = std::fmod(camera_rotation.y + 0.01f, glm::tau<float>());
         }
         if (glfwGetKey(window, GLFW_KEY_RIGHT)) {
-            camera_rotation.y -= 0.01f;
+            camera_rotation.y = std::fmod(camera_rotation.y - 0.01f, glm::tau<float>());
         }
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -176,8 +184,19 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Hello, world!");
-        ImGui::Text("This is some useful text.");
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+        ImGuiWindowFlags flags =
+            ImGuiWindowFlags_NoResize
+            | ImGuiWindowFlags_NoMove
+            | ImGuiWindowFlags_NoCollapse
+            | ImGuiWindowFlags_NoDecoration
+            | ImGuiWindowFlags_AlwaysAutoResize;
+        ImGui::Begin("Statistics", nullptr, flags);
+        ImGui::Text("%.2f ms", delta * 1000.0f);
+        ImGui::Text("Grid Size: %u", GRID_SIZE);
+        ImGui::Text("Voxels: %u", voxel_count);
+        ImGui::Text("Camera Position: (x: %.2f, y: %.2f, z: %.2f)", camera_position.x, camera_position.y, camera_position.z);
+        ImGui::Text("Camera Rotation: (x: %.2f, y: %.2f, z: %.2f)", camera_rotation.x, camera_rotation.y, camera_rotation.z);
         ImGui::End();
         
         ImGui::Render();
