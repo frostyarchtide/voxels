@@ -92,10 +92,7 @@ HitInfo raycast(vec3 origin, vec3 direction) {
     vec3 delta = vec3(INFINITY);
     for (uint i = 0; i < 3; i++) {
         if (direction[i] != 0.0) {
-            float next = float(voxel[i]);
-            if (direction[i] < 0.0) {
-                next += 1.0;
-            }
+            float next = float(voxel[i]) + step(0.0, direction[i]);
 
             distance[i] = (next - origin[i]) / direction[i];
             delta[i] = abs(1.0 / direction[i]);
@@ -116,9 +113,11 @@ HitInfo raycast(vec3 origin, vec3 direction) {
         }
 
         float minimum = min(min(distance.x, distance.y), distance.z);
-        vec3 mask = step(minimum + EPSILON, distance);
-        out_color = vec4(mask, 1.0);
-        break;
+        vec3 mask = vec3(
+            distance.x == minimum,
+            distance.y == minimum,
+            distance.z == minimum
+        );
         
         voxel += step_direction * ivec3(mask);
         distance += delta * mask;
@@ -143,7 +142,6 @@ void main() {
 
     HitInfo hit_info = raycast(camera_position, direction);
     vec3 hit_position = camera_position + direction * hit_info.distance;
-    return;
 
     if (hit_info.voxel != ivec3(-1)) {
         color = vec3(hit_info.voxel) / GRID_SIZE;
