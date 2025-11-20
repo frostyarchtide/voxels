@@ -130,8 +130,8 @@ int main() {
     glUseProgram(shader_program);
     
     std::chrono::high_resolution_clock::time_point last_time = std::chrono::high_resolution_clock::now();
-    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, (float) GRID_SIZE);
-    glm::vec3 camera_rotation = glm::vec3(0.0f);
+    glm::vec3 camera_position = glm::vec3(55.78f, 57.84f, 61.57f);
+    glm::vec3 camera_rotation = glm::vec3(-0.46f, 0.52f, 0.0f);
 
     while (!glfwWindowShouldClose(window)) {
         std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
