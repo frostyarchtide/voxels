@@ -3,7 +3,7 @@ R"(
 
 const float EPSILON = 1.0e-3;
 const float INFINITY = 1.0e+30;
-const uint GRID_SIZE = 128;
+const uint GRID_SIZE = 32;
 const vec3 LIGHT_DIRECTION = normalize(vec3(1.0, 0.5, 1.0));
 const float AMBIENT_LIGHT = 0.1;
 const ivec3 DIRECTIONS[] = ivec3[](
@@ -141,53 +141,53 @@ void main() {
     vec3 color = vec3(0.0);
 
     HitInfo hit_info = raycast(camera_position, direction);
-    vec3 hit_position = camera_position + direction * hit_info.distance;
+    // vec3 hit_position = camera_position + direction * hit_info.distance;
 
     if (hit_info.voxel != ivec3(-1)) {
         color = vec3(hit_info.voxel) / GRID_SIZE;
-        float light = dot(hit_info.normal, LIGHT_DIRECTION);
+        // float light = dot(hit_info.normal, LIGHT_DIRECTION);
 
-        uint neighbor = 0;
-        while (neighbor < 6) {
-            if (DIRECTIONS[neighbor] == ivec3(hit_info.normal)) {
-                break;
-            } else {
-                neighbor++;
-            }
-        }
-        
-        ivec3 normal_voxel = hit_info.voxel + ivec3(hit_info.normal);
-        float ambient_occlusion = 0.0;
-        for (uint i = 0; i < 4; i++) {
-            ivec3 offset = NEIGHBORS[neighbor][i];
-            if (is_voxel(normal_voxel + offset)) {
-                vec3 hit_masked = hit_position * offset;
-                float distance = 1.0 - length(fract(hit_masked));
-                
-                for (uint j = 0; j < 4; j++) {
-                    ivec3 other_offset = NEIGHBORS[neighbor][j];
-                    if (j == i || abs(other_offset) == abs(offset)) continue;
+        // uint neighbor = 0;
+        // while (neighbor < 6) {
+        //     if (DIRECTIONS[neighbor] == ivec3(hit_info.normal)) {
+        //         break;
+        //     } else {
+        //         neighbor++;
+        //     }
+        // }
+        // 
+        // ivec3 normal_voxel = hit_info.voxel + ivec3(hit_info.normal);
+        // float ambient_occlusion = 0.0;
+        // for (uint i = 0; i < 4; i++) {
+        //     ivec3 offset = NEIGHBORS[neighbor][i];
+        //     if (is_voxel(normal_voxel + offset)) {
+        //         vec3 hit_masked = hit_position * offset;
+        //         float distance = 1.0 - length(fract(hit_masked));
+        //         
+        //         for (uint j = 0; j < 4; j++) {
+        //             ivec3 other_offset = NEIGHBORS[neighbor][j];
+        //             if (j == i || abs(other_offset) == abs(offset)) continue;
 
-                    if (!is_voxel(hit_info.voxel + other_offset) || !is_voxel(normal_voxel + offset + other_offset)) {
-                        hit_masked = hit_position * other_offset;
-                        distance /= clamp(1.0 - length(fract(hit_masked)), EPSILON, 2.0);
-                    }
-                }
+        //             if (!is_voxel(hit_info.voxel + other_offset) || !is_voxel(normal_voxel + offset + other_offset)) {
+        //                 hit_masked = hit_position * other_offset;
+        //                 distance /= clamp(1.0 - length(fract(hit_masked)), EPSILON, 2.0);
+        //             }
+        //         }
 
-                ambient_occlusion = clamp(ambient_occlusion + smoothstep(0.25, 0.0, distance) * 0.25, 0.0, 1.0);
-            }
-        }
+        //         ambient_occlusion = clamp(ambient_occlusion + smoothstep(0.25, 0.0, distance) * 0.25, 0.0, 1.0);
+        //     }
+        // }
 
-        hit_info = raycast(camera_position + direction * hit_info.distance, LIGHT_DIRECTION);
-        if (hit_info.voxel != ivec3(-1)) {
-            light = AMBIENT_LIGHT;
-        }
-        
-        light *= 1.0 - ambient_occlusion;
-        color *= light;
+        // hit_info = raycast(camera_position + direction * hit_info.distance, LIGHT_DIRECTION);
+        // if (hit_info.voxel != ivec3(-1)) {
+        //     light = AMBIENT_LIGHT;
+        // }
+        // 
+        // light *= 1.0 - ambient_occlusion;
+        // color *= light;
     } else {
-        float value = dot(direction, LIGHT_DIRECTION);
-        color = vec3(smoothstep(0.95, 0.96, pow(value, 3.0)));
+        // float value = dot(direction, LIGHT_DIRECTION);
+        // color = vec3(smoothstep(0.95, 0.96, pow(value, 3.0)));
     }
 
     out_color = vec4(color, 1.0);

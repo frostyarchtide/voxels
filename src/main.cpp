@@ -9,11 +9,11 @@
 #include <imgui_impl_opengl3.h>
 
 #include <chrono>
-#include <vector>
 
 #include "debug.hpp"
+#include "octree.hpp"
 
-const unsigned int GRID_SIZE = 128;
+const unsigned int GRID_SIZE = 2;
 
 void window_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -73,32 +73,12 @@ int main() {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*) 0);
     glEnableVertexAttribArray(0);
     
-    std::vector<unsigned int> voxels(GRID_SIZE * GRID_SIZE * GRID_SIZE);
-    unsigned int voxel_count = 0;
-    for (size_t z = 0; z < GRID_SIZE; z++) {
-        for (size_t y = 0; y < GRID_SIZE; y++) {
-            for (size_t x = 0; x < GRID_SIZE; x++) {
-                bool value = (
-                    std::pow(x - (float) GRID_SIZE / 2.0f, 2)
-                    + std::pow(y - (float) GRID_SIZE / 2.0f, 2)
-                    + std::pow(z - (float) GRID_SIZE / 2.0f, 2)
-                ) < std::pow((float) GRID_SIZE / 2.0f, 2) || (
-                    std::pow(x - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
-                    + std::pow(y - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
-                    + std::pow(z - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
-                ) < std::pow((float) GRID_SIZE / 8.0f, 2);
-                voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = value;
-                if (value) voxel_count++;
-            }
-        }
-    }
-    voxels[0] = 1;
-    voxels[GRID_SIZE * GRID_SIZE * GRID_SIZE - 1] = 1;
+    Octree octree;
     
     unsigned int voxels_buffer;
     glGenBuffers(1, &voxels_buffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, voxels_buffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * GRID_SIZE * GRID_SIZE * GRID_SIZE, &voxels[0], GL_STATIC_READ);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, octree.get_voxels().size(), &octree.get_voxels(), GL_STATIC_READ);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, voxels_buffer);
     
     const char* vertex_shader_source =
@@ -130,8 +110,8 @@ int main() {
     glUseProgram(shader_program);
     
     std::chrono::high_resolution_clock::time_point last_time = std::chrono::high_resolution_clock::now();
-    glm::vec3 camera_position = glm::vec3(55.78f, 57.84f, 61.57f);
-    glm::vec3 camera_rotation = glm::vec3(-0.46f, 0.52f, 0.0f);
+    glm::vec3 camera_position = glm::vec3(0.0f, 0.0f, (float) GRID_SIZE);
+    glm::vec3 camera_rotation = glm::vec3(0.0f, 0.0f, 0.0f);
 
     while (!glfwWindowShouldClose(window)) {
         std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
