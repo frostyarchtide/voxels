@@ -6,6 +6,22 @@ const float INFINITY = 1.0e+30;
 const uint GRID_SIZE = 128;
 const vec3 LIGHT_DIRECTION = normalize(vec3(1.0, 0.5, 1.0));
 const float AMBIENT_LIGHT = 0.1;
+const ivec3 DIRECTIONS[] = ivec3[](
+    ivec3(0, 1, 0),
+    ivec3(0, -1, 0),
+    ivec3(-1, 0, 0),
+    ivec3(1, 0, 0),
+    ivec3(0, 0, -1),
+    ivec3(0, 0, 1)
+);
+ivec3 NEIGHBORS[][] = ivec3[][](
+    ivec3[]( ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, 0, -1), ivec3(0, 0, 1) ), // ivec3(0, 1, 0)
+    ivec3[]( ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, 0, -1), ivec3(0, 0, 1) ), // ivec3(0, -1, 0)
+    ivec3[]( ivec3(0, 1, 0), ivec3(0, -1, 0), ivec3(0, 0, -1), ivec3(0, 0, 1) ), // ivec3(-1, 0, 0)
+    ivec3[]( ivec3(0, 1, 0), ivec3(0, -1, 0), ivec3(0, 0, -1), ivec3(0, 0, 1) ), // ivec3(1, 0, 0)
+    ivec3[]( ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, 1, 0), ivec3(0, -1, 0) ), // ivec3(0, 0, -1)
+    ivec3[]( ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, 1, 0), ivec3(0, -1, 0) )  // ivec3(0, 0, 1)
+);
 
 struct IntersectionInfo {
     float start;
@@ -15,8 +31,8 @@ struct IntersectionInfo {
 
 struct HitInfo {
     ivec3 voxel;
-    vec3 position;
     vec3 normal;
+    float distance;
 };
 
 layout(std430, binding = 0) readonly buffer Voxels {
@@ -51,6 +67,11 @@ IntersectionInfo boxIntersection( in vec3 ro, in vec3 rd, vec3 boxSize )
     );
 }
 
+bool is_voxel(ivec3 index) {
+    if (index.x < 0 || index.y < 0 || index.z < 0 || index.x >= GRID_SIZE || index.y >= GRID_SIZE || index.z >= GRID_SIZE) return false;
+    return voxels.data[index.z * GRID_SIZE * GRID_SIZE + index.y * GRID_SIZE + index.x] > 0;
+}
+
 HitInfo raycast(vec3 origin, vec3 direction) {
     IntersectionInfo intersection = boxIntersection(origin, direction, vec3(GRID_SIZE / 2.0));
     if (intersection.start < 0.0) {
@@ -60,7 +81,7 @@ HitInfo raycast(vec3 origin, vec3 direction) {
             return HitInfo(
                 ivec3(-1),
                 vec3(0.0),
-                vec3(0.0)
+                -1.0
             );
         }
     }
@@ -86,13 +107,11 @@ HitInfo raycast(vec3 origin, vec3 direction) {
     
     for (uint i = 0; i < GRID_SIZE; i++) {
         ivec3 index = voxel + ivec3(GRID_SIZE / 2);
-        if (index.x < 0 || index.y < 0 || index.z < 0 || index.x >= GRID_SIZE || index.y >= GRID_SIZE || index.z >= GRID_SIZE) break;
-        
-        if (voxels.data[index.z * GRID_SIZE * GRID_SIZE + index.y * GRID_SIZE + index.x] > 0) {
+        if (is_voxel(index)) {
             return HitInfo(
                 index,
-                origin + direction * total_distance,
-                normal
+                normal,
+                total_distance
             );
         }
 
@@ -118,7 +137,7 @@ HitInfo raycast(vec3 origin, vec3 direction) {
     return HitInfo(
         ivec3(-1),
         vec3(0.0),
-        vec3(1.0)
+        -1.0
     );
 }
 
@@ -127,18 +146,47 @@ void main() {
     ndc.x *= viewport.z / viewport.w;
     vec3 direction = normalize(vec3(ndc, -1.0));
     direction = normalize(vec3(camera_basis * vec4(direction, 1.0)));
+    
+    vec3 color = vec3(0.0);
 
     HitInfo hit_info = raycast(camera_position, direction);
-    vec3 color = vec3(0.0);
+    vec3 hit_position = camera_position + direction * hit_info.distance;
+
+    if (hit_info.voxel != ivec3(-1)) {
+    }
+
     if (hit_info.voxel != ivec3(-1)) {
         color = vec3(hit_info.voxel) / GRID_SIZE;
         float light = dot(hit_info.normal, LIGHT_DIRECTION);
-        hit_info = raycast(hit_info.position, LIGHT_DIRECTION);
+
+        uint neighbor = 0;
+        while (neighbor < 6) {
+            if (DIRECTIONS[neighbor] == ivec3(hit_info.normal)) {
+                break;
+            } else {
+                neighbor++;
+            }
+        }
+        
+        ivec3 normal_voxel = hit_info.voxel + ivec3(hit_info.normal);
+        float ambient_occlusion = 0.0;
+        for (uint i = 0; i < 4; i++) {
+            ivec3 offset = NEIGHBORS[neighbor][i];
+            ivec3 neighbor_voxel = normal_voxel + offset;
+            if (is_voxel(neighbor_voxel)) {
+                vec3 hit_masked = abs(hit_position * offset);
+                float distance = fract(max(max(hit_masked.x, hit_masked.y), hit_masked.z));
+                ambient_occlusion = clamp(ambient_occlusion + smoothstep(0.25, 0.0, distance) * 0.25, 0.0, 1.0);
+            }
+        }
+
+        hit_info = raycast(camera_position + direction * hit_info.distance, LIGHT_DIRECTION);
         if (hit_info.voxel != ivec3(-1)) {
             light = AMBIENT_LIGHT;
             color = vec3(hit_info.voxel) / GRID_SIZE;
         }
         
+        light *= 1.0 - ambient_occlusion;
         color *= light;
     } else {
         float value = dot(direction, LIGHT_DIRECTION);

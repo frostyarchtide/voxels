@@ -82,7 +82,11 @@ int main() {
                     std::pow(x - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(y - (float) GRID_SIZE / 2.0f, 2)
                     + std::pow(z - (float) GRID_SIZE / 2.0f, 2)
-                ) < std::pow((float) GRID_SIZE / 2.0f, 2);
+                ) < std::pow((float) GRID_SIZE / 2.0f, 2) || (
+                    std::pow(x - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
+                    + std::pow(y - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
+                    + std::pow(z - (float) GRID_SIZE + (float) GRID_SIZE / 8.0f, 2)
+                ) < std::pow((float) GRID_SIZE / 8.0f, 2);
                 voxels[z * GRID_SIZE * GRID_SIZE + y * GRID_SIZE + x] = value;
                 if (value) voxel_count++;
             }
