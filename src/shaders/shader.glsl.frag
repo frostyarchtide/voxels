@@ -87,13 +87,13 @@ HitInfo raycast(vec3 origin, vec3 direction) {
     }
 
     ivec3 voxel = ivec3(floor(origin + direction * (intersection.start + EPSILON)));
-    ivec3 step = ivec3(sign(direction));
+    ivec3 step_direction = ivec3(sign(direction));
     vec3 distance = vec3(INFINITY);
     vec3 delta = vec3(INFINITY);
     for (uint i = 0; i < 3; i++) {
         if (direction[i] != 0.0) {
             float next = float(voxel[i]);
-            if (direction[i] > 0.0) {
+            if (direction[i] < 0.0) {
                 next += 1.0;
             }
 
@@ -115,23 +115,15 @@ HitInfo raycast(vec3 origin, vec3 direction) {
             );
         }
 
-        ivec3 mask = ivec3(0);
-        if (distance.x <= distance.y && distance.x <= distance.z) {
-            mask.x = 1;
-            normal = vec3(-step.x, 0.0, 0.0);
-            total_distance += distance.x - total_distance;
-        } else if (distance.y < distance.x && distance.y <= distance.z) {
-            mask.y = 1;
-            normal = vec3(0.0, -step.y, 0.0);
-            total_distance += distance.y - total_distance;
-        } else {
-            mask.z = 1;
-            normal = vec3(0.0, 0.0, -step.z);
-            total_distance += distance.z - total_distance;
-        }
+        float minimum = min(min(distance.x, distance.y), distance.z);
+        vec3 mask = step(minimum + EPSILON, distance);
+        out_color = vec4(mask, 1.0);
+        break;
         
-        distance += delta * vec3(mask);
-        voxel += step * mask;
+        voxel += step_direction * ivec3(mask);
+        distance += delta * mask;
+        total_distance += minimum - total_distance;
+        normal = -step_direction * mask;
     }
     
     return HitInfo(
@@ -151,6 +143,7 @@ void main() {
 
     HitInfo hit_info = raycast(camera_position, direction);
     vec3 hit_position = camera_position + direction * hit_info.distance;
+    return;
 
     if (hit_info.voxel != ivec3(-1)) {
         color = vec3(hit_info.voxel) / GRID_SIZE;
